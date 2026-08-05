@@ -1,18 +1,26 @@
 def generate_content(client, messages):
+    from call_function import available_functions
+
     # Create a chat completion request to the OpenRouter API
     response = client.chat.completions.create(
         model="openrouter/free",
         messages=messages,
+        tools=available_functions,
+        temperature=0,
     )
+
+
     return response
 
 def main():
     print("Hello from angela-ai!")
 
     import os
+    import json
     import argparse
     from dotenv import load_dotenv
     from openai import OpenAI
+    from prompts import system_prompt
 
     # Load the OpenRouter API key from environment variables
     load_dotenv()
@@ -36,6 +44,7 @@ def main():
     
     # Create a list of messages for the chat completion request
     messages=[
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": args.user_prompt},
     ]
 
@@ -51,11 +60,16 @@ def main():
             print(f"User prompt: {args.user_prompt}")
             print(f"Prompt tokens: {response.usage.prompt_tokens}")
             print(f"Response tokens: {response.usage.completion_tokens}")
-            # Get the response from the API
-            print(f"Response: {response.choices[0].message.content}")
-        else:
-            # Get the response from the API
-            print(f"Response: {response.choices[0].message.content}")
+
+    # Generate the message content from the response
+    message = response.choices[0].message
+    if message.tool_calls is None or len(message.tool_calls) == 0:
+        print(f"Response: {message.content}")
+    else:
+        # If there are tool calls, print the tool call information
+        for tool_call in message.tool_calls:
+            function_args = json.loads(tool_call.function.arguments or "{}")
+            print(f"Calling function: {tool_call.function.name}({function_args})")
 
 
 if __name__ == "__main__":
